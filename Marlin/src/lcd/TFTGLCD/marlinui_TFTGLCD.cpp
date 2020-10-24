@@ -864,7 +864,7 @@ void MarlinUI::draw_status_screen() {
     lcd.setCursor(0, y);
     lcd.write(COLOR_EDIT);
     lcd_put_u8str_P(pstr);
-    if (value != nullptr) {
+    if (value) {
       lcd.write(':');
       lcd.setCursor((LCD_WIDTH - 1) - (utf8_strlen(value) + 1), y); // Right-justified, padded by spaces
       lcd.write(' ');                                               // Overwrite char if value gets shorter
