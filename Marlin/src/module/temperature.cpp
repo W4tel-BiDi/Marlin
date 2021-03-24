@@ -129,7 +129,7 @@
 #endif
 
 #if HAS_SERVOS
-  #include "./servo.h"
+  #include "servo.h"
 #endif
 
 #if ANY(HEATER_0_USES_THERMISTOR, HEATER_1_USES_THERMISTOR, HEATER_2_USES_THERMISTOR, HEATER_3_USES_THERMISTOR, \
