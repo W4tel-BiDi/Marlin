@@ -96,8 +96,8 @@
     #define Z_MIN_PIN                       PG5   // E2
   #endif
 #else
-  #define Z_MIN_PIN                         PG8   // Z-
-  #define Z_MAX_PIN                         PG5   // E2
+  #define Z_MIN_PIN                         PG5   // Z-
+  #define Z_MAX_PIN                         PG8   // E2
 #endif
 
 //
@@ -470,3 +470,6 @@
 #define ESP_WIFI_MODULE_ENABLE_PIN          PG1
 #define ESP_WIFI_MODULE_GPIO0_PIN           PF14
 #define ESP_WIFI_MODULE_GPIO2_PIN           PF15
+
+#define SPINDLE_LASER_ENA_PIN    PC4   // digital pin
+#define SPINDLE_LASER_PWM_PIN    PC9   // digital pin - MUST BE HARDWARE PWM
