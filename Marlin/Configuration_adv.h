@@ -2416,7 +2416,7 @@
  * TMCStepper library is required to use TMC stepper drivers.
  * https://github.com/teemuatlut/TMCStepper
  */
-#if HAS_TRINAMIC_config
+#if HAS_TRINAMIC_CONFIG
 
   #define HOLD_MULTIPLIER    0.5  // Scales down the holding current from run current
 
