@@ -16,7 +16,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  */
 #pragma once
@@ -45,7 +45,6 @@
 class matrix_3x3;
 
 struct vector_3 : xyz_float_t {
-
   vector_3(const float &_x, const float &_y, const float &_z) { set(_x, _y, _z); }
   vector_3(const xy_float_t   &in) { set(in.x, in.y); }
   vector_3(const xyz_float_t  &in) { set(in.x, in.y, in.z); }
@@ -82,9 +81,8 @@ struct matrix_3x3 {
   void set_to_identity();
 
   void debug(PGM_P const title);
-};
 
-void apply_rotation_xyz(const matrix_3x3 &rotationMatrix, float &x, float &y, float &z);
-FORCE_INLINE void apply_rotation_xyz(const matrix_3x3 &rotationMatrix, xyz_pos_t &pos) {
-  apply_rotation_xyz(rotationMatrix, pos.x, pos.y, pos.z);
-}
+  void apply_rotation_xyz(float &x, float &y, float &z);
+
+  FORCE_INLINE void apply_rotation_xyz(xyz_pos_t &pos) { apply_rotation_xyz(pos.x, pos.y, pos.z); }
+};
