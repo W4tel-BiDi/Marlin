@@ -2,7 +2,9 @@
 # common-dependencies.py
 # Convenience script to check dependencies and add libs and sources for Marlin Enabled Features
 #
-import subprocess,os,re
+import subprocess
+import os
+import re
 try:
 	import configparser
 except ImportError:
@@ -13,30 +15,6 @@ try:
 except ImportError:
 	# PIO >= 4.4
 	from platformio.package.meta import PackageSpec as PackageManager
-
-PIO_VERSION_MIN = (5, 0, 3)
-try:
-	from platformio import VERSION as PIO_VERSION
-	weights = (1000, 100, 1)
-	version_min = sum([x[0] * float(re.sub(r'[^0-9]', '.', str(x[1]))) for x in zip(weights, PIO_VERSION_MIN)])
-	version_cur = sum([x[0] * float(re.sub(r'[^0-9]', '.', str(x[1]))) for x in zip(weights, PIO_VERSION)])
-	if version_cur < version_min:
-		print()
-		print("**************************************************")
-		print("******      An update to PlatformIO is      ******")
-		print("******  required to build Marlin Firmware.  ******")
-		print("******                                      ******")
-		print("******      Minimum version: ", PIO_VERSION_MIN, "    ******")
-		print("******      Current Version: ", PIO_VERSION, "    ******")
-		print("******                                      ******")
-		print("******   Update PlatformIO and try again.   ******")
-		print("**************************************************")
-		print()
-		exit(1)
-except SystemExit:
-	exit(1)
-except:
-	print("Can't detect PlatformIO Version")
 
 Import("env")
 
@@ -67,23 +45,16 @@ def add_to_feat_cnf(feature, flines):
 	except:
 		FEATURE_CONFIG[feature] = {}
 
-	# Get a reference to the FEATURE_CONFIG under construction
 	feat = FEATURE_CONFIG[feature]
-
-	# Split up passed lines on commas or newlines and iterate
-	# Add common options to the features config under construction
-	# For lib_deps replace a previous instance of the same library
-	atoms = re.sub(r',\\s*', '\n', flines).strip().split('\n')
-	for line in atoms:
-		parts = line.split('=')
+	atoms = re.sub(',\\s*', '\n', flines).strip().split('\n')
+	for dep in atoms:
+		parts = dep.split('=')
 		name = parts.pop(0)
-		if name in ['build_flags', 'extra_scripts', 'src_filter', 'lib_ignore']:
-			feat[name] = '='.join(parts)
+		rest = '='.join(parts)
+		if name in ['extra_scripts', 'src_filter', 'lib_ignore']:
+			feat[name] = rest
 		else:
-			for dep in line.split(','):
-				lib_name = re.sub(r'@([~^]|[<>]=?)?[\d.]+', '', dep.strip()).split('=').pop(0)
-				lib_re = re.compile('(?!^' + lib_name + '\\b)')
-				feat['lib_deps'] = list(filter(lib_re.match, feat['lib_deps'])) + [dep]
+			feat['lib_deps'] += [dep]
 
 def load_config():
 	config = configparser.ConfigParser()
@@ -137,7 +108,8 @@ def force_ignore_unused_libs():
 	known_libs = get_all_known_libs()
 	diff = (list(set(known_libs) - set(env_libs)))
 	lib_ignore = env.GetProjectOption('lib_ignore') + diff
-	blab("Ignore libraries: %s" % lib_ignore)
+	if verbose:
+		print("Ignore libraries:", lib_ignore)
 	set_env_field('lib_ignore', lib_ignore)
 
 def apply_features_config():
@@ -176,12 +148,6 @@ def apply_features_config():
 				# Only add the missing dependencies
 				set_env_field('lib_deps', deps + list(deps_to_add.values()))
 
-		if 'build_flags' in feat:
-			f = feat['build_flags']
-			blab("Adding build_flags for %s: %s" % (feature, f))
-			new_flags = env.GetProjectOption('build_flags') + [ f ]
-			env.Replace(BUILD_FLAGS=new_flags)
-
 		if 'extra_scripts' in feat:
 			blab("Running extra_scripts for %s... " % feature)
 			env.SConscript(feat['extra_scripts'], exports="env")
@@ -190,8 +156,8 @@ def apply_features_config():
 			blab("Adding src_filter for %s... " % feature)
 			src_filter = ' '.join(env.GetProjectOption('src_filter'))
 			# first we need to remove the references to the same folder
-			my_srcs = re.findall(r'[+-](<.*?>)', feat['src_filter'])
-			cur_srcs = re.findall(r'[+-](<.*?>)', src_filter)
+			my_srcs = re.findall( r'[+-](<.*?>)', feat['src_filter'])
+			cur_srcs = re.findall( r'[+-](<.*?>)', src_filter)
 			for d in my_srcs:
 				if d in cur_srcs:
 					src_filter = re.sub(r'[+-]' + d, '', src_filter)
@@ -213,13 +179,13 @@ GCC_PATH_CACHE = os.path.join(ENV_BUILD_PATH, ".gcc_path")
 def search_compiler():
 	try:
 		filepath = env.GetProjectOption('custom_gcc')
-		blab("Getting compiler from env")
+		blab('Getting compiler from env')
 		return filepath
 	except:
 		pass
 
 	if os.path.exists(GCC_PATH_CACHE):
-		blab("Getting g++ path from cache")
+		blab('Getting g++ path from cache')
 		with open(GCC_PATH_CACHE, 'r') as f:
 			return f.read()
 
@@ -242,11 +208,10 @@ def search_compiler():
 		for filepath in os.listdir(pathdir):
 			if not filepath.endswith(gcc):
 				continue
-			# Use entire path to not rely on env PATH
-			filepath = os.path.sep.join([pathdir, filepath])
+
 			# Cache the g++ path to no search always
 			if os.path.exists(ENV_BUILD_PATH):
-				blab("Caching g++ for current env")
+				blab('Caching g++ for current env')
 				with open(GCC_PATH_CACHE, 'w+') as f:
 					f.write(filepath)
 
@@ -268,7 +233,7 @@ def load_marlin_features():
 	build_flags = env.ParseFlagsExtended(build_flags)
 
 	cxx = search_compiler()
-	cmd = ['"' + cxx + '"']
+	cmd = [cxx]
 
 	# Build flags from board.json
 	#if 'BOARD' in env:

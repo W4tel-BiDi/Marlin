@@ -21,9 +21,8 @@
  */
 #pragma once
 
-#include "../inc/MarlinConfig.h"
-
-//#define DEBUG_TOOLCHANGE_MIGRATION_FEATURE
+#include "../inc/MarlinConfigPre.h"
+#include "../core/types.h"
 
 #if HAS_MULTI_EXTRUDER
 
@@ -79,18 +78,18 @@
 
 #if ENABLED(PARKING_EXTRUDER)
 
-  #define PE_MAGNET_ON_STATE TERN_(PARKING_EXTRUDER_SOLENOIDS_INVERT, !)PARKING_EXTRUDER_SOLENOIDS_PINS_ACTIVE
+  #if ENABLED(PARKING_EXTRUDER_SOLENOIDS_INVERT)
+    #define PE_MAGNET_ON_STATE !PARKING_EXTRUDER_SOLENOIDS_PINS_ACTIVE
+  #else
+    #define PE_MAGNET_ON_STATE PARKING_EXTRUDER_SOLENOIDS_PINS_ACTIVE
+  #endif
 
-  void pe_solenoid_set_pin_state(const uint8_t extruder_num, const uint8_t state);
+  void pe_set_solenoid(const uint8_t extruder_num, const uint8_t state);
 
-  inline void pe_solenoid_magnet_on(const uint8_t extruder_num)  { pe_solenoid_set_pin_state(extruder_num,  PE_MAGNET_ON_STATE); }
-  inline void pe_solenoid_magnet_off(const uint8_t extruder_num) { pe_solenoid_set_pin_state(extruder_num, !PE_MAGNET_ON_STATE); }
+  inline void pe_activate_solenoid(const uint8_t extruder_num) { pe_set_solenoid(extruder_num, PE_MAGNET_ON_STATE); }
+  inline void pe_deactivate_solenoid(const uint8_t extruder_num) { pe_set_solenoid(extruder_num, !PE_MAGNET_ON_STATE); }
 
   void pe_solenoid_init();
-
-  extern bool extruder_parked;
-  inline void parking_extruder_set_parked(const bool parked) { extruder_parked = parked; }
-  bool parking_extruder_unpark_after_homing(const uint8_t final_tool, bool homed_towards_final_tool);
 
 #elif ENABLED(MAGNETIC_PARKING_EXTRUDER)
 
@@ -109,11 +108,17 @@
 
 #endif
 
-#if ENABLED(ELECTROMAGNETIC_SWITCHING_TOOLHEAD)
-  void est_init();
-#elif ENABLED(SWITCHING_TOOLHEAD)
-  void swt_init();
+#if ENABLED(SINGLENOZZLE_STANDBY_TEMP)
+  extern uint16_t singlenozzle_temp[EXTRUDERS];
 #endif
+
+#if BOTH(HAS_FAN, SINGLENOZZLE_STANDBY_FAN)
+  extern uint8_t singlenozzle_fan_speed[EXTRUDERS];
+#endif
+
+TERN_(ELECTROMAGNETIC_SWITCHING_TOOLHEAD, void est_init());
+
+TERN_(SWITCHING_TOOLHEAD, void swt_init());
 
 /**
  * Perform a tool-change, which may result in moving the

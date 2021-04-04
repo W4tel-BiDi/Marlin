@@ -33,10 +33,6 @@
 #include "../module/stepper/indirection.h"
 #include "../MarlinCore.h"
 
-#if defined(PSU_POWERUP_GCODE) || defined(PSU_POWEROFF_GCODE)
-  #include "../gcode/gcode.h"
-#endif
-
 #if BOTH(USE_CONTROLLER_FAN, AUTO_POWER_CONTROLLERFAN)
   #include "controllerfan.h"
 #endif
@@ -59,9 +55,6 @@ bool Power::is_power_needed() {
   #endif
 
   if (TERN0(AUTO_POWER_CHAMBER_FAN, thermalManager.chamberfan_speed))
-    return true;
-
-  if (TERN0(AUTO_POWER_COOLER_FAN, thermalManager.coolerfan_speed))
     return true;
 
   // If any of the drivers or the bed are enabled...
@@ -92,10 +85,6 @@ bool Power::is_power_needed() {
     if (thermalManager.degChamber() >= AUTO_POWER_CHAMBER_TEMP) return true;
   #endif
 
-  #if HAS_COOLER && AUTO_POWER_COOLER_TEMP
-    if (thermalManager.degCooler() >= AUTO_POWER_COOLER_TEMP) return true;
-  #endif
-
   return false;
 }
 
@@ -118,27 +107,11 @@ void Power::power_on() {
     safe_delay(PSU_POWERUP_DELAY);
     restore_stepper_drivers();
     TERN_(HAS_TRINAMIC_CONFIG, safe_delay(PSU_POWERUP_DELAY));
-    #ifdef PSU_POWERUP_GCODE
-      GcodeSuite::process_subcommands_now_P(PSTR(PSU_POWERUP_GCODE));
-    #endif
   }
 }
 
 void Power::power_off() {
-  if (powersupply_on) {
-    #ifdef PSU_POWEROFF_GCODE
-      GcodeSuite::process_subcommands_now_P(PSTR(PSU_POWEROFF_GCODE));
-    #endif
-    PSU_PIN_OFF();
-  }
-}
-
-void Power::power_off_soon() {
-  #if POWER_OFF_DELAY
-    lastPowerOn = millis() - SEC_TO_MS(POWER_TIMEOUT) + SEC_TO_MS(POWER_OFF_DELAY);
-  #else
-    power_off();
-  #endif
+  if (powersupply_on) PSU_PIN_OFF();
 }
 
 #endif // AUTO_POWER_CONTROL

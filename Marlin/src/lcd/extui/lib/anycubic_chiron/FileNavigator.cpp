@@ -44,8 +44,6 @@ using namespace ExtUI;
 
 namespace Anycubic {
 
-  FileNavigator filenavigator;
-
   FileList  FileNavigator::filelist;                          // Instance of the Marlin file API
   char      FileNavigator::currentfoldername[MAX_PATH_LEN];   // Current folder path
   uint16_t  FileNavigator::lastindex;
@@ -73,7 +71,7 @@ namespace Anycubic {
     // Each time we change folder we reset the file index to 0 and keep track
     // of the current position as the TFT panel isnt aware of folders trees.
     if (index > 0) {
-      --currentindex; // go back a file to take account of the .. added to the root.
+      --currentindex; // go back a file to take account off the .. we added to the root.
       if (index > lastindex)
         currentindex += files;
       else
@@ -114,7 +112,7 @@ namespace Anycubic {
     }
     else {
       // Logical Name
-      TFTSer.write('/');
+      TFTSer.print("/");
       if (folderdepth > 0) TFTSer.print(currentfoldername);
 
       TFTSer.println(filelist.shortFilename());

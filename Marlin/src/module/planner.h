@@ -102,11 +102,6 @@ enum BlockFlagBit : char {
   #if ENABLED(DIRECT_STEPPING)
     , BLOCK_BIT_IS_PAGE
   #endif
-
-  // Sync the fan speeds from the block
-  #if ENABLED(LASER_SYNCHRONOUS_M106_M107)
-    , BLOCK_BIT_SYNC_FANS
-  #endif
 };
 
 enum BlockFlag : char {
@@ -117,12 +112,7 @@ enum BlockFlag : char {
   #if ENABLED(DIRECT_STEPPING)
     , BLOCK_FLAG_IS_PAGE            = _BV(BLOCK_BIT_IS_PAGE)
   #endif
-  #if ENABLED(LASER_SYNCHRONOUS_M106_M107)
-    , BLOCK_FLAG_SYNC_FANS          = _BV(BLOCK_BIT_SYNC_FANS)
-  #endif
 };
-
-#define BLOCK_MASK_SYNC ( BLOCK_FLAG_SYNC_POSITION | TERN0(LASER_SYNCHRONOUS_M106_M107, BLOCK_FLAG_SYNC_FANS) )
 
 #if ENABLED(LASER_POWER_INLINE)
 
@@ -180,9 +170,7 @@ typedef struct block_t {
     static constexpr uint8_t extruder = 0;
   #endif
 
-  #if ENABLED(MIXING_EXTRUDER)
-    mixer_comp_t b_color[MIXING_STEPPERS];  // Normalized color for the mixing steppers
-  #endif
+  TERN_(MIXING_EXTRUDER, MIXER_BLOCK_FIELD); // Normalized color for the mixing steppers
 
   // Settings for the trapezoid generator
   uint32_t accelerate_until,                // The index of the step event on which to stop acceleration
@@ -298,10 +286,6 @@ typedef struct {
                 xz = XZ_SKEW_FACTOR, yz = YZ_SKEW_FACTOR;
   #endif
 } skew_factor_t;
-
-#if ENABLED(DISABLE_INACTIVE_EXTRUDER)
-  typedef IF<(BLOCK_BUFFER_SIZE > 64), uint16_t, uint8_t>::type last_move_t;
-#endif
 
 class Planner {
   public:
@@ -451,7 +435,7 @@ class Planner {
 
     #if ENABLED(DISABLE_INACTIVE_EXTRUDER)
        // Counters to manage disabling inactive extruders
-      static last_move_t g_uc_extruder_last_move[EXTRUDERS];
+      static uint8_t g_uc_extruder_last_move[EXTRUDERS];
     #endif
 
     #if HAS_WIRED_LCD
@@ -472,27 +456,12 @@ class Planner {
      * Static (class) Methods
      */
 
-    // Recalculate steps/s^2 accelerations based on mm/s^2 settings
     static void reset_acceleration_rates();
-
-    /**
-     * Recalculate 'position' and 'steps_to_mm'.
-     * Must be called whenever settings.axis_steps_per_mm changes!
-     */
     static void refresh_positioning();
+    static void set_max_acceleration(const uint8_t axis, float targetValue);
+    static void set_max_feedrate(const uint8_t axis, float targetValue);
+    static void set_max_jerk(const AxisEnum axis, float targetValue);
 
-    // For an axis set the Maximum Acceleration in mm/s^2
-    static void set_max_acceleration(const uint8_t axis, float inMaxAccelMMS2);
-
-    // For an axis set the Maximum Feedrate in mm/s
-    static void set_max_feedrate(const uint8_t axis, float inMaxFeedrateMMS);
-
-    // For an axis set the Maximum Jerk (instant change) in mm/s
-    #if HAS_CLASSIC_JERK
-      static void set_max_jerk(const AxisEnum axis, float inMaxJerkMMS);
-    #else
-      static inline void set_max_jerk(const AxisEnum, const float&) {}
-    #endif
 
     #if EXTRUDERS
       FORCE_INLINE static void refresh_e_factor(const uint8_t e) {
@@ -508,16 +477,6 @@ class Planner {
 
     // Manage fans, paste pressure, etc.
     static void check_axes_activity();
-
-    // Apply fan speeds
-    #if HAS_FAN
-      static void sync_fan_speeds(uint8_t (&fan_speed)[FAN_COUNT]);
-      #if FAN_KICKSTART_TIME
-        static void kickstart_fan(uint8_t (&fan_speed)[FAN_COUNT], const millis_t &ms, const uint8_t f);
-      #else
-        FORCE_INLINE static void kickstart_fan(uint8_t (&)[FAN_COUNT], const millis_t &, const uint8_t) {}
-      #endif
-    #endif
 
     #if ENABLED(FILAMENT_WIDTH_SENSOR)
       void apply_filament_width_sensor(const int8_t encoded_ratio);
@@ -601,10 +560,10 @@ class Planner {
     #if ENABLED(SKEW_CORRECTION)
 
       FORCE_INLINE static void skew(float &cx, float &cy, const float &cz) {
-        if (COORDINATE_OKAY(cx, X_MIN_POS + 1, X_MAX_POS) && COORDINATE_OKAY(cy, Y_MIN_POS + 1, Y_MAX_POS)) {
+        if (WITHIN(cx, X_MIN_POS + 1, X_MAX_POS) && WITHIN(cy, Y_MIN_POS + 1, Y_MAX_POS)) {
           const float sx = cx - cy * skew_factor.xy - cz * (skew_factor.xz - (skew_factor.xy * skew_factor.yz)),
                       sy = cy - cz * skew_factor.yz;
-          if (COORDINATE_OKAY(sx, X_MIN_POS, X_MAX_POS) && COORDINATE_OKAY(sy, Y_MIN_POS, Y_MAX_POS)) {
+          if (WITHIN(sx, X_MIN_POS, X_MAX_POS) && WITHIN(sy, Y_MIN_POS, Y_MAX_POS)) {
             cx = sx; cy = sy;
           }
         }
@@ -612,10 +571,10 @@ class Planner {
       FORCE_INLINE static void skew(xyz_pos_t &raw) { skew(raw.x, raw.y, raw.z); }
 
       FORCE_INLINE static void unskew(float &cx, float &cy, const float &cz) {
-        if (COORDINATE_OKAY(cx, X_MIN_POS, X_MAX_POS) && COORDINATE_OKAY(cy, Y_MIN_POS, Y_MAX_POS)) {
+        if (WITHIN(cx, X_MIN_POS, X_MAX_POS) && WITHIN(cy, Y_MIN_POS, Y_MAX_POS)) {
           const float sx = cx + cy * skew_factor.xy + cz * skew_factor.xz,
                       sy = cy + cz * skew_factor.yz;
-          if (COORDINATE_OKAY(sx, X_MIN_POS, X_MAX_POS) && COORDINATE_OKAY(sy, Y_MIN_POS, Y_MAX_POS)) {
+          if (WITHIN(sx, X_MIN_POS, X_MAX_POS) && WITHIN(sy, Y_MIN_POS, Y_MAX_POS)) {
             cx = sx; cy = sy;
           }
         }
@@ -741,18 +700,15 @@ class Planner {
 
     /**
      * Planner::buffer_sync_block
-     * Add a block to the buffer that just updates the position or in
-     * case of LASER_SYNCHRONOUS_M106_M107 the fan pwm
+     * Add a block to the buffer that just updates the position
      */
-    static void buffer_sync_block(
-      TERN_(LASER_SYNCHRONOUS_M106_M107, uint8_t sync_flag=BLOCK_FLAG_SYNC_POSITION)
-    );
+    static void buffer_sync_block();
 
   #if IS_KINEMATIC
     private:
 
       // Allow do_homing_move to access internal functions, such as buffer_segment.
-      friend void do_homing_move(const AxisEnum, const float, const feedRate_t, const bool);
+      friend void do_homing_move(const AxisEnum, const float, const feedRate_t);
   #endif
 
     /**
@@ -921,12 +877,11 @@ class Planner {
     #endif
 
     #if ENABLED(AUTOTEMP)
-      static celsius_t autotemp_min, autotemp_max;
-      static float autotemp_factor;
+      static float autotemp_min, autotemp_max, autotemp_factor;
       static bool autotemp_enabled;
-      static void autotemp_update();
-      static void autotemp_M104_M109();
       static void getHighESpeed();
+      static void autotemp_M104_M109();
+      static void autotemp_update();
     #endif
 
     #if HAS_LINEAR_E_JERK
@@ -938,14 +893,6 @@ class Planner {
     #endif
 
   private:
-
-    #if ENABLED(AUTOTEMP)
-      #if ENABLED(AUTOTEMP_PROPORTIONAL)
-        static void _autotemp_update_from_hotend();
-      #else
-        static inline void _autotemp_update_from_hotend() {}
-      #endif
-    #endif
 
     /**
      * Get the index of the next / previous block in the ring buffer
@@ -993,10 +940,10 @@ class Planner {
       }
     #endif
 
-    static void calculate_trapezoid_for_block(block_t * const block, const float &entry_factor, const float &exit_factor);
+    static void calculate_trapezoid_for_block(block_t* const block, const float &entry_factor, const float &exit_factor);
 
-    static void reverse_pass_kernel(block_t * const current, const block_t * const next);
-    static void forward_pass_kernel(const block_t * const previous, block_t * const current, uint8_t block_index);
+    static void reverse_pass_kernel(block_t* const current, const block_t * const next);
+    static void forward_pass_kernel(const block_t * const previous, block_t* const current, uint8_t block_index);
 
     static void reverse_pass();
     static void forward_pass();
@@ -1027,6 +974,6 @@ class Planner {
     #endif // !CLASSIC_JERK
 };
 
-#define PLANNER_XY_FEEDRATE() _MIN(planner.settings.max_feedrate_mm_s[X_AXIS], planner.settings.max_feedrate_mm_s[Y_AXIS])
+#define PLANNER_XY_FEEDRATE() (_MIN(planner.settings.max_feedrate_mm_s[X_AXIS], planner.settings.max_feedrate_mm_s[Y_AXIS]))
 
 extern Planner planner;
